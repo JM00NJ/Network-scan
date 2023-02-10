@@ -27,47 +27,56 @@ def reverseName(ip):
         print(Fore.BLUE + "ip_type:\n" + t.iptype())
 
 
-def host_fingerprint(t,port):
-
+def host_fingerprint(t, p):
     path = os.getcwd()
     scan = os.scandir(path)
-    print(Fore.GREEN + "Scanning current dir files for nmap-os-fingerprints[file] | path:: %s" %path)
+    print(Fore.GREEN + "Scanning current dir files for nmap-os-fingerprints[file] | path:: %s" % path)
     for files in scan:
         if files.name.startswith("nmap-os-fingerprints"):
             print(Fore.GREEN + "nmap-os-fingerprints file have")
             break
         else:
-            print(Fore.GREEN + "Dont have nmap-os-fingerprints file gonna download...")
             open('nmap-os-fingerprints', 'wb').write(
-                    urllib.request.urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+                urllib.request.urlopen(
+                    'https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
     load_module("nmap")
     conf.nmap_base = "nmap-os-fingerprints"
-    fpr = nmap_fp(t,oport=port,cport=1)
+    fpr = nmap_fp(t, oport=port, cport=1)
     print(fpr)
+
 
 def host_discovery(range):
     gw = conf.route.route("0.0.0.0")[2]
     print(Fore.GREEN + "Gateway :: ", gw)
-    gw = gw+range
-    send_arp = arping(gw,timeout=4,verbose=True)
+    gw = gw + range
+    send_arp = arping(gw, timeout=4, verbose=True)
+
+
 def portscan():
-    host = str(input("Target host to scan:"))
+    t = str(input("Target host to scan:"))
     start = int(input("Start-port {range}>>"))
     end = int(input("End-port {range}>>"))
-    for p in range(start,end+1):
-        src_p = random.randint(1025,65534)
-        packet = sr1(scapy.layers.inet.IP(dst=host) / TCP(sport=src_p, dport=p, flags="S"), timeout=1,verbose=0)
+    opens = []
+    filters = []
+    for p in range(start, end + 1):
+        src_p = random.randint(1025, 65534)
+        packet = sr1(scapy.layers.inet.IP(dst=t) / TCP(sport=src_p, dport=p, flags="S"), timeout=1, verbose=0)
         if packet is None:
-            print(f"{host}:{p} is filtered")
+            print(f"{t}:{p} is filtered")
+            filters.append(p)
         elif packet.haslayer(TCP):
             if packet.getlayer(TCP).flags == 0x12:
-                sr(scapy.layers.inet.IP(dst=host) / TCP(sport=src_p, dport=p, flags='R'), timeout=1, verbose=0)
-                print(f"{host}:{p} is open")
+                sr(scapy.layers.inet.IP(dst=t) / TCP(sport=src_p, dport=p, flags='R'), timeout=1, verbose=0)
+                print(f"{t}:{p} is open")
+                opens.append(p)
             elif packet.getlayer(TCP).flags == 0x14:
                 pass
             elif packet.haslayer(TCP):
-                if int(packet.getlayer(ICMP).type) == 3 and int(packet.getlayer(ICMP).code) in [1,2,3,9,10,13]:
-                    print(f"{host}:{p} is filtered")
+                if int(packet.getlayer(ICMP).type) == 3 and int(packet.getlayer(ICMP).code) in [1, 2, 3, 9, 10, 13]:
+                    print(f"{t}:{p} is filtered")
+
+    print("Open Ports >>", opens)
+    print("Filtered Ports >>", filters)
 
 
 os.system("clear")
@@ -77,7 +86,7 @@ while True:
         print(Fore.CYAN + "\nReverse DNS Lookup:(1)")
         print(Fore.CYAN + "Host Fingerprint Guess(2)")
         print(Fore.CYAN + "Host discovery On Local Network(3)")
-        print(Fore.CYAN + "Port Scan [SYN](4)")
+        print(Fore.CYAN + "Port Scan [TCP-STEALTH](4)")
 
         choose = int(input(Fore.RED + "\nChoose the Tool :: "))
         if choose > 4 or choose < 1:
@@ -97,7 +106,7 @@ while True:
             port = str(port)
             print(Fore.GREEN + port)
             port = int(port)
-            host_fingerprint(t,port)
+            host_fingerprint(t, port)
         elif choose == 3:
             rge = str(input("range; example: /16 - /24 => "))
             try:
@@ -112,9 +121,9 @@ while True:
                 print(Fore.RED + "Quit")
                 sys.exit()
         elif choose == 4:
-            print(Fore.GREEN + "#############\nSYN SCAN\n#############\nClosed Ports Wont Show Up\n")
+            print(Fore.GREEN + "#############\nTCP-STEALTH SCAN\n#############\nClosed Ports Wont Show Up\n")
             portscan()
-            print("Scan is Done")
+            print("Scan is done")
 
     except ValueError:
         print("Empty input entered")
